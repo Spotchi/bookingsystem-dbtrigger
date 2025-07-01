@@ -1,6 +1,7 @@
 // Setup type definitions for built-in Supabase Runtime APIs
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { SMTPClient } from "https://deno.land/x/denomailer/mod.ts";
+import { getTemplateFromLanguageCode } from "./language-utils.ts";
 serve(async (req) => {
   try {
     const isAuthenticated =
@@ -58,8 +59,7 @@ serve(async (req) => {
       },
     });
     console.log("Connecting to SMTP server:", emailHost, emailPort);
-    let subject = "";
-    let body = "";
+    
     // Format the date and time for better readability
     const startDateTime = new Date(record.start_time);
     const endDateTime = new Date(record.end_time);
@@ -72,39 +72,21 @@ serve(async (req) => {
       hour: "2-digit",
       minute: "2-digit",
     });
+
+    // Get the appropriate email template based on the booking's language
+    console.log("Booking language:", record.language);
+    const emailTemplate = getTemplateFromLanguageCode(record.language);
+    
+    let subject = "";
+    let body = "";
+    
     // Determine email content based on the event type
     if (type === "new_booking") {
-      subject = `Nouvelle demande de réservation: ${record.title}`;
-      body = `Une nouvelle demande de réservation a été reçue.
-
-Informations de réservation:
-----------------------------
-Titre: ${record.title}
-Description: ${record.description || "Aucune"}
-Salle: ${record.room_name} (capacité: ${record.room_capacity})
-Date: ${formattedStartDate}
-Horaire: ${formattedStartTime} - ${formattedEndTime}
-Créée par: ${record.created_by_name || "Non spécifié"} (${
-        record.created_by_email
-      })
-
-Pour approuver cette réservation, veuillez vous connecter au système de réservation.`;
+      subject = emailTemplate.newBooking.subject(record.title);
+      body = emailTemplate.newBooking.body(record, formattedStartDate, formattedStartTime, formattedEndTime);
     } else if (type === "confirmed_booking") {
-      subject = `Réservation confirmée: ${record.title}`;
-      body = `Une réservation a été confirmée.
-
-Informations de réservation:
-----------------------------
-Titre: ${record.title}
-Description: ${record.description || "Aucune"}
-Salle: ${record.room_name} (capacité: ${record.room_capacity})
-Date: ${formattedStartDate}
-Horaire: ${formattedStartTime} - ${formattedEndTime}
-Créée par: ${record.created_by_name || "Non spécifié"} (${
-        record.created_by_email
-      })
-Approuvée par: ${record.approved_by_email}
-Date d'approbation: ${new Date(record.approved_at || "").toLocaleString()}`;
+      subject = emailTemplate.confirmedBooking.subject(record.title);
+      body = emailTemplate.confirmedBooking.body(record, formattedStartDate, formattedStartTime, formattedEndTime);
     }
     console.log(`Sending email to ${officeManagerEmail} - Subject: ${subject}`);
     // Send the email
