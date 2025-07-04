@@ -4,11 +4,12 @@
   "description": "hack the commons",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "supabase start",
+    "test": "deno tests/test-language.ts"
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "supabase": "^2.22.12"
+  "devDependencies": {
+    "supabase": "^2.30.4"
   }
 }
