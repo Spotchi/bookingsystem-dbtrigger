@@ -10,6 +10,6 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "supabase": "^2.30.4"
+    "supabase": "2.31.0"
   }
 }
