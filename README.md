@@ -91,6 +91,26 @@ The system requires these environment variables:
 - `OFFICE_MANAGER_EMAIL` - Recipient email for notifications
 - `TRIGGER_AUTH` - Authentication token for webhook security
 
+## Testing Setup
+
+To run Supabase function tests, follow these steps:
+
+1. Navigate to the `supabase/functions/` directory:
+   ```sh
+   cd supabase/functions
+   ```
+2. Copy the environment variable template to a new `.env` file:
+   ```sh
+   cp .env.template .env
+   ```
+3. Fill in the required values in `.env` with your credentials and configuration.
+
+4. Run the tests (from the `supabase/functions/` directory):
+   ```sh
+   deno test --allow-env --allow-net --allow-read
+   ```
+   Adjust permissions as needed depending on your test requirements.
+
 ## TODO
 
 - Fulfill email credentials
