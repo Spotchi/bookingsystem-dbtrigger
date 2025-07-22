@@ -1,10 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 // Setup type definitions for built-in Supabase Runtime APIs
-import { handleCalenderEntry } from "./../../../src/handleCalendar.ts";
+import { handleCalendarEntry } from "./../../../src/handleCalendar.ts";
 import { sendEmail } from "./../../../src/sendEmail.ts";
 
-Deno.serve(async (req) => {
+export async function handler(req: Request) {
   try {
     const isAuthenticated =
       req.headers.get("x-supabase-webhook-source") ===
@@ -30,17 +30,16 @@ Deno.serve(async (req) => {
     console.log(payload);
     const { record, type } = payload;
 
-    const result = await sendEmail(record, type, isAuthenticated);
+    const result = await sendEmail(record, type);
     if (result.error) {
       return result.error;
     }
 
-    const resultCalendar = await handleCalenderEntry(
+    const resultCalendar = await handleCalendarEntry(
       record,
-      type,
-      isAuthenticated
+      type
     );
-    if (resultCalendar.error) {
+    if (resultCalendar && 'error' in resultCalendar && resultCalendar.error) {
       return resultCalendar.error;
     }
 
@@ -93,7 +92,9 @@ Deno.serve(async (req) => {
       );
     }
   }
-});
+}
+
+Deno.serve(handler);
 
 /* To invoke locally:
 

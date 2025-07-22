@@ -5,7 +5,6 @@ import { getTemplateFromLanguageCode } from "./language-utils.ts";
 export const sendEmail = async (
   record: any,
   type: string,
-  isAuthenticated: boolean
 ) => {
   // Récupérer les variables d'environnement
   const emailHost = Deno.env.get("EMAIL_HOST");
@@ -19,7 +18,6 @@ export const sendEmail = async (
     !emailUser ||
     !emailPass ||
     !officeManagerEmail ||
-    !isAuthenticated
   ) {
     console.error("Missing email configuration in environment variables");
     return {
@@ -32,7 +30,6 @@ export const sendEmail = async (
             user: !emailUser,
             pass: !emailPass,
             recipient: !officeManagerEmail,
-            authentication: !isAuthenticated,
           },
         }),
         {

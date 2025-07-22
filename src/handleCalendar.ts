@@ -3,7 +3,13 @@ import { CalendarTimeBasedTemplateEvent } from "./lib/nip-52";
 import { getCommunityATag } from "./lib/nip-72";
 import { GoogleCalendarService, CalendarEvent } from "./lib/google-calendar.ts";
 
-export const handleCalenderEntry = async (record, type, isAuthenticated) => {
+
+enum BookingEventType {
+  NEW_BOOKING = "new_booking",
+  CONFIRMED_BOOKING = "confirmed_booking",
+}
+
+export const handleCalendarEntry = async (record: any, type: BookingEventType) => {
   const pool = new SimplePool();
   const relays = ["wss://relay.chorus.community"];
   const secretKey = Deno.env.get("NOSTR_SECRET_KEY");
@@ -14,27 +20,7 @@ export const handleCalenderEntry = async (record, type, isAuthenticated) => {
   // Initialize Google Calendar service
   const googleCalendar = new GoogleCalendarService();
 
-  //
-  if (!isAuthenticated) {
-    return {
-      error: new Response(
-        JSON.stringify({
-          success: false,
-          error: "Calendar handling failed",
-          missing: {
-            authentication: !isAuthenticated,
-          },
-        }),
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          status: 500,
-        }
-      ),
-    };
-  } // TODO handle calendar entry
-  if (type === "new_booking") {
+  if (type === BookingEventType.NEW_BOOKING) {
     // Create a Google Calendar entry
     try {
       const calendarEvent: CalendarEvent = {
@@ -61,7 +47,7 @@ export const handleCalenderEntry = async (record, type, isAuthenticated) => {
       console.error("Failed to create Google Calendar event:", error);
       // Don't fail the entire process if calendar creation fails
     }
-  } else if (type === "confirmed_booking") {
+  } else if (type === BookingEventType.CONFIRMED_BOOKING) {
     // Create Nostr calendar entry
     const calendarEvent: CalendarTimeBasedTemplateEvent = {
       kind: 31923,
