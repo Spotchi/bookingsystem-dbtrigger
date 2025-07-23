@@ -8,7 +8,7 @@
     "npm:@supabase/supabase-js@2": "2.52.0",
     "npm:@types/node@*": "22.15.15",
     "npm:googleapis@137": "137.1.0",
-    "npm:nostr-tools@2.15.1": "2.15.1",
+    "npm:nostr-tools@^2.15.1": "2.15.1",
     "npm:openai@^4.52.5": "4.104.0"
   },
   "jsr": {
@@ -571,7 +571,7 @@
       "jsr:@std/dotenv@*",
       "npm:@supabase/supabase-js@2",
       "npm:googleapis@137",
-      "npm:nostr-tools@2.15.1"
+      "npm:nostr-tools@^2.15.1"
     ]
   }
 }

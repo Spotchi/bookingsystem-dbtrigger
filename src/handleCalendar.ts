@@ -2,6 +2,7 @@ import { finalizeEvent, SimplePool, verifyEvent } from "nostr-tools";
 import { CalendarTimeBasedTemplateEvent } from "./lib/nip-52.ts";
 import { getCommunityATag } from "./lib/nip-72.ts";
 import { GoogleCalendarService, CalendarEvent } from "./lib/google-calendar.ts";
+import { hexToBytes } from "npm:nostr-tools/utils";
 
 
 enum BookingEventType {
@@ -74,12 +75,13 @@ export const handleCalendarEntry = async (record: any, type: BookingEventType) =
       content: record.description || "",
       created_at: Math.floor(Date.now() / 1000),
     };
-    const event = finalizeEvent(calendarEvent, new TextEncoder().encode(secretKey));
+    const sk = hexToBytes(secretKey);
+    const event = finalizeEvent(calendarEvent, sk);
 
     const isGood = verifyEvent(event);
     console.log("event", event);
     if (isGood) {
-      pool.publish(relays, event);
+      await Promise.all(pool.publish(relays, event));
     }
   }
 
