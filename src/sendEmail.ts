@@ -17,7 +17,7 @@ export const sendEmail = async (
     !emailHost ||
     !emailUser ||
     !emailPass ||
-    !officeManagerEmail ||
+    !officeManagerEmail
   ) {
     console.error("Missing email configuration in environment variables");
     return {

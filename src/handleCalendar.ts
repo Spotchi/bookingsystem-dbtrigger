@@ -1,6 +1,6 @@
 import { finalizeEvent, SimplePool, verifyEvent } from "nostr-tools";
-import { CalendarTimeBasedTemplateEvent } from "./lib/nip-52";
-import { getCommunityATag } from "./lib/nip-72";
+import { CalendarTimeBasedTemplateEvent } from "./lib/nip-52.ts";
+import { getCommunityATag } from "./lib/nip-72.ts";
 import { GoogleCalendarService, CalendarEvent } from "./lib/google-calendar.ts";
 
 
@@ -16,6 +16,17 @@ export const handleCalendarEntry = async (record: any, type: BookingEventType) =
   const community_id = Deno.env.get("NOSTR_COMMUNITY_ID");
   const community_identifier = Deno.env.get("NOSTR_COMMUNITY_IDENTIFIER");
   const googleCalendarId = Deno.env.get("GOOGLE_CALENDAR_ID") || "primary";
+  if (!secretKey) {
+    return { success: false, error: "NOSTR_SECRET_KEY environment variable is not set" };
+  }
+
+  if (!community_id) {
+    return { success: false, error: "NOSTR_COMMUNITY_ID environment variable is not set" };
+  }
+
+  if (!community_identifier) {
+    return { success: false, error: "NOSTR_COMMUNITY_IDENTIFIER environment variable is not set" };
+  }
 
   // Initialize Google Calendar service
   const googleCalendar = new GoogleCalendarService();
@@ -63,9 +74,9 @@ export const handleCalendarEntry = async (record: any, type: BookingEventType) =
       content: record.description || "",
       created_at: Math.floor(Date.now() / 1000),
     };
-    let event = finalizeEvent(calendarEvent, secretKey);
+    const event = finalizeEvent(calendarEvent, new TextEncoder().encode(secretKey));
 
-    let isGood = verifyEvent(event);
+    const isGood = verifyEvent(event);
     console.log("event", event);
     if (isGood) {
       pool.publish(relays, event);
