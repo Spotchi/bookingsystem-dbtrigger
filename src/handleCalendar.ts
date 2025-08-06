@@ -8,6 +8,8 @@ import { hexToBytes } from "npm:nostr-tools/utils";
 enum BookingEventType {
   NEW_BOOKING = "new_booking",
   CONFIRMED_BOOKING = "confirmed_booking",
+  NEW_REQUEST = "new_request",
+  NEW_REQUEST_COMMENT = "new_request_comment",
 }
 
 export const handleCalendarEntry = async (record: any, type: BookingEventType) => {
@@ -83,6 +85,10 @@ export const handleCalendarEntry = async (record: any, type: BookingEventType) =
     if (isGood) {
       await Promise.all(pool.publish(relays, event));
     }
+  } else if (type === BookingEventType.NEW_REQUEST || type === BookingEventType.NEW_REQUEST_COMMENT) {
+    // For requests and request comments, we don't create calendar entries
+    // They are handled by email notifications only
+    console.log(`Request event of type ${type} received - no calendar entry needed`);
   }
 
   return { success: true };

@@ -92,6 +92,15 @@ export const sendEmail = async (
       formattedStartTime,
       formattedEndTime
     );
+  } else if (type === "new_request") {
+    subject = emailTemplate.newRequest.subject(record.title);
+    body = emailTemplate.newRequest.body(record);
+  } else if (type === "new_request_comment") {
+    // For request comments, we need to get the request title
+    // Since we only have the comment record, we'll use a generic title
+    const requestTitle = `Request #${record.request_id}`;
+    subject = emailTemplate.newRequestComment.subject(requestTitle);
+    body = emailTemplate.newRequestComment.body(record);
   }
   console.log(`Sending email to ${officeManagerEmail} - Subject: ${subject}`);
   // Send the email
