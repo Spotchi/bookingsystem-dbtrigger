@@ -4,17 +4,55 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { handleCalendarEntry } from "./../../../src/handleCalendar.ts";
 import { sendEmail } from "./../../../src/sendEmail.ts";
 
+// Function to create HMAC signature
+async function createSignature(payload: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(payload);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export async function handler(req: Request) {
   try {
-    const isAuthenticated =
-      req.headers.get("x-supabase-webhook-source") ===
-      Deno.env.get("TRIGGER_AUTH");
-
-    if (!isAuthenticated) {
+    // Get the signature from headers
+    const signature = req.headers.get("x-supabase-webhook-signature");
+    if (!signature) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Authentication failed",
+          error: "Missing webhook signature",
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 401,
+        }
+      );
+    }
+
+    // Get the raw body as text for signing
+    const rawBody = await req.text();
+    
+    // Get the secret from environment
+    const secret = (globalThis as any).Deno?.env?.get("TRIGGER_AUTH");
+    if (!secret) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Missing TRIGGER_AUTH secret",
         }),
         {
           headers: {
@@ -25,12 +63,33 @@ export async function handler(req: Request) {
       );
     }
 
+    // Create expected signature
+    const expectedSignature = await createSignature(rawBody, secret);
+    
+    // Verify signature (constant-time comparison to prevent timing attacks)
+    const isValid = signature === expectedSignature;
+    
+    if (!isValid) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Invalid webhook signature",
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 401,
+        }
+      );
+    }
+
     // Parse the request body
-    const payload = await req.json();
+    const payload = JSON.parse(rawBody);
     console.log(payload);
     const { record, type } = payload;
 
-    const emailDisabled = Deno.env.get("EMAIL_DISABLED") === "true";
+    const emailDisabled = (globalThis as any).Deno?.env?.get("EMAIL_DISABLED") === "true";
     if (!emailDisabled) {
       const result = await sendEmail(record, type);
       if (result.error) {
@@ -100,4 +159,4 @@ export async function handler(req: Request) {
 }
 
 // @ts-ignore
-Deno.serve?.length === 1 ? Deno.serve(handler) : Deno.serve({ port: 8000 }, handler);
+(globalThis as any).Deno?.serve?.length === 1 ? (globalThis as any).Deno.serve(handler) : (globalThis as any).Deno.serve({ port: 8000 }, handler);
