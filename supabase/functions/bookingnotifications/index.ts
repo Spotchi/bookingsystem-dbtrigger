@@ -3,56 +3,25 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 // Setup type definitions for built-in Supabase Runtime APIs
 import { handleCalendarEntry } from "./../../../src/handleCalendar.ts";
 import { sendEmail } from "./../../../src/sendEmail.ts";
-
-// Function to create HMAC signature
-async function createSignature(payload: string, secret: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(secret);
-  const messageData = encoder.encode(payload);
-  
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    keyData,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  
-  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
-  return Array.from(new Uint8Array(signature))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 export async function handler(req: Request) {
   try {
-    // Get the signature from headers
-    const signature = req.headers.get("x-supabase-webhook-signature");
-    if (!signature) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Missing webhook signature",
-        }),
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          status: 401,
-        }
-      );
-    }
+    // Handle direct function calls from frontend
+    // The Supabase client handles authentication automatically
+    const payload = await req.json();
+    console.log(payload);
+    const { record, type } = payload;
 
-    // Get the raw body as text for signing
-    const rawBody = await req.text();
+    // Create Supabase client for database operations
+    const supabaseUrl = (globalThis as any).Deno?.env?.get("SUPABASE_URL");
+    const supabaseServiceKey = (globalThis as any).Deno?.env?.get("SUPABASE_SERVICE_ROLE_KEY");
     
-    // Get the secret from environment
-    const secret = (globalThis as any).Deno?.env?.get("TRIGGER_AUTH");
-    if (!secret) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Missing TRIGGER_AUTH secret",
+          error: "Missing Supabase configuration",
         }),
         {
           headers: {
@@ -63,32 +32,43 @@ export async function handler(req: Request) {
       );
     }
 
-    // Create expected signature
-    const expectedSignature = await createSignature(rawBody, secret);
-    
-    // Verify signature (constant-time comparison to prevent timing attacks)
-    const isValid = signature === expectedSignature;
-    
-    if (!isValid) {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Handle database operations based on type
+    let dbResult;
+    if (type === 'new_booking') {
+      dbResult = await supabase.from('bookings').insert(record);
+    } else if (type === 'new_request') {
+      dbResult = await supabase.from('requests').insert(record);
+    } else if (type === 'new_request_comment') {
+      dbResult = await supabase.from('request_comments').insert(record);
+    } else if (type === 'confirmed_booking') {
+      // Update existing booking with approval data
+      const { id, ...updateData } = record;
+      dbResult = await supabase.from('bookings').update(updateData).eq('id', id);
+    } else {
+      // For other types, we don't perform database operations
+      dbResult = { error: null };
+    }
+
+    if (dbResult.error) {
+      console.error("Database operation error:", dbResult.error);
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Invalid webhook signature",
+          error: "Failed to perform database operation",
+          details: dbResult.error,
         }),
         {
           headers: {
             "Content-Type": "application/json",
           },
-          status: 401,
+          status: 500,
         }
       );
     }
 
-    // Parse the request body
-    const payload = JSON.parse(rawBody);
-    console.log(payload);
-    const { record, type } = payload;
-
+    // Send email notifications
     const emailDisabled = (globalThis as any).Deno?.env?.get("EMAIL_DISABLED") === "true";
     if (!emailDisabled) {
       const result = await sendEmail(record, type);
@@ -99,6 +79,7 @@ export async function handler(req: Request) {
       console.log("Email disabled, skipping email");
     }
 
+    // Handle calendar entries
     const resultCalendar = await handleCalendarEntry(
       record,
       type
@@ -109,12 +90,12 @@ export async function handler(req: Request) {
 
     // Log a success message
     console.log(
-      `Email sent successfully and calendar entry handled for ${type}`
+      `Database operation completed, email sent, and calendar entry handled for ${type}`
     );
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Notification email sent",
+        message: "Operation completed and notification sent",
       }),
       {
         headers: {
@@ -125,7 +106,7 @@ export async function handler(req: Request) {
   } catch (error) {
     // Log the error
     if (error instanceof Error) {
-      console.error("Error sending notification:", error.message);
+      console.error("Error processing request:", error.message);
       console.error("Stack trace:", error.stack);
       return new Response(
         JSON.stringify({
@@ -141,7 +122,7 @@ export async function handler(req: Request) {
         }
       );
     } else {
-      console.error("Error sending notification:", error);
+      console.error("Error processing request:", error);
       return new Response(
         JSON.stringify({
           success: false,
